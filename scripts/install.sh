@@ -68,25 +68,49 @@ check_neovim() {
     fi
 }
 
+# Check if Node.js and npm are already installed
+check_nodejs() {
+    if command -v node &> /dev/null && command -v npm &> /dev/null; then
+        NODE_VERSION=$(node -v)
+        NPM_VERSION=$(npm -v)
+        print_success "Node.js $NODE_VERSION and npm $NPM_VERSION found"
+        return 0
+    else
+        print_warning "Node.js/npm not found"
+        return 1
+    fi
+}
+
 # Install dependencies
 install_dependencies() {
     print_step "Installing dependencies..."
     
+    # Check if Node.js is already installed (e.g., via conda, nvm, or other sources)
+    if check_nodejs; then
+        NODEJS_PACKAGE=""
+    else
+        NODEJS_PACKAGE="nodejs npm"
+    fi
+    
     if [ "$OS" == "linux" ]; then
         if [ "$PKG_MANAGER" == "apt" ]; then
             sudo apt update
-            sudo apt install -y git curl wget unzip ripgrep fd-find nodejs npm build-essential
+            sudo apt install -y git curl wget unzip ripgrep fd-find build-essential $NODEJS_PACKAGE
         elif [ "$PKG_MANAGER" == "yum" ]; then
-            sudo yum install -y git curl wget unzip ripgrep fd nodejs npm gcc make
+            sudo yum install -y git curl wget unzip ripgrep fd gcc make $NODEJS_PACKAGE
         elif [ "$PKG_MANAGER" == "pacman" ]; then
-            sudo pacman -S --noconfirm git curl wget unzip ripgrep fd nodejs npm base-devel
+            sudo pacman -S --noconfirm git curl wget unzip ripgrep fd base-devel $NODEJS_PACKAGE
         fi
     elif [ "$OS" == "macos" ]; then
         if ! command -v brew &> /dev/null; then
             print_step "Installing Homebrew..."
             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         fi
-        brew install git curl wget unzip ripgrep fd node
+        brew install git curl wget unzip ripgrep fd
+        # Only install node if not present
+        if ! check_nodejs; then
+            brew install node
+        fi
     fi
     
     print_success "Dependencies installed"
